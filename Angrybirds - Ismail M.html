@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Angry Birds Physics Lab - Grade 12 Mechanics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fira+Code:wght@400;500&family=Inter:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            color: #f8fafc;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, 
+                #0f172a 0%, 
+                #1e293b 20%,
+                #2d3748 40%,
+                #064e3b 70%, 
+                #065f46 100%);
+        }
+        
+        /* Hearts Container - Top Left */
+        .hearts-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 60;
+            display: flex;
+            gap: 8px;
+            pointer-events: none; /* Let clicks pass through to canvas */
+        }
+        .heart {
+            color: #f43f5e; /* Rose-500 */
+            font-size: 1.8rem;
+            text-shadow: 2px 2px 0px #000;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .heart.lost {
+            color: #475569; /* Slate-600 */
+            opacity: 0.4;
+            transform: scale(0.9);
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 380px;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.97);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 15px;
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+        
+        /* State when sidebar is hidden (Open handle visible) */
+        .sidebar.collapsed {
+            transform: translateX(340px);
+        }
+
+        /* The Handle to OPEN the sidebar (Left side) */
+        .toggle-sidebar {
+            position: absolute;
+            top: 20px;
+            left: -45px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            border-right: none;
+            color: #60a5fa;
+            padding: 10px 15px;
+            border-radius: 8px 0 0 8px;
+            cursor: pointer;
+            z-index: 51;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+        }
+        .toggle-sidebar:hover {
+            background: #1e293b;
+            color: #93c5fd;
+            padding-left: 18px; /* Slight movement to suggest slide */
+        }
+
+        /* The Button to CLOSE the sidebar (Top Right of sidebar) */
+        .close-sidebar-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 60;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-sidebar-btn:hover {
+            background: rgba(244, 63, 94, 0.2);
+            color: #f43f5e;
+            border-color: #f43f5e;
+            transform: rotate(90deg);
+        }
+
+        .math-font {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.7rem;
+        }
+        .angry-title {
+            font-family: 'Luckiest Guy', cursive;
+            color: #f43f5e;
+            text-shadow: 2px 2px 0px #000, 0 0 10px rgba(244, 63, 94, 0.5);
+            letter-spacing: 1px;
+        }
+        .panel-card {
+            background: linear-gradient(to right, rgba(30, 41, 59, 0.7), rgba(30, 41, 59, 0.3));
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .panel-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .panel-header {
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 900;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            user-select: none;
+        }
+        .panel-content {
+            padding: 0 12px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            border-top: 1px solid transparent;
+        }
+        .panel-content.expanded {
+            max-height: 400px; /* Increased */
+            padding: 0 12px 10px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .eq-box {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px;
+            border-radius: 4px;
+            margin-top: 5px;
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            font-size: 0.6rem;
+        }
+        .val-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-top: 3px;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.75rem;
+        }
+        .val-row:last-child { border-bottom: none; }
+        .label { color: #94a3b8; }
+        .value { color: #fff; font-weight: 700; }
+        .btn-game {
+            font-family: 'Luckiest Guy', cursive;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            margin-top: 8px;
+            transition: all 0.2s;
+            letter-spacing: 1px;
+            border: none;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-game:active { transform: scale(0.95); }
+        .btn-game::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        .btn-game:hover::after {
+            left: 100%;
+        }
+        #toast {
+            position: fixed;
+            bottom: 70px; /* Moved up to avoid bottom-left button */
+            left: 20px;
+            background: linear-gradient(135deg, #f43f5e, #ec4899);
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 5px 15px rgba(244, 63, 94, 0.4);
+            font-weight: bold;
+            animation: toast-pop 0.3s ease-out;
+            font-size: 0.9rem;
+        }
+        @keyframes toast-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .progress-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.3s;
+        }
+        .slider-container {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+        }
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .slider-label {
+            width: 80px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .slider-value {
+            width: 50px;
+            text-align: right;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+        }
+        .slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .info-bubble {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.65rem;
+            z-index: 40;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 180px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .wind-indicator {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 6px;
+            padding: 8px;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+        }
+        .compact-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .compact-buttons .btn-game {
+            margin-top: 0;
+            padding: 8px;
+            font-size: 0.8rem;
+        }
+        .quick-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .quick-action-btn {
+            flex: 1;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .quick-action-btn:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Hitbox Toggle - MOVED TO BOTTOM LEFT */
+        .hitbox-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+        }
+        .hitbox-toggle:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        .hitbox-toggle.active {
+            background: rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            border-color: #60a5fa;
+        }
+
+        .health-bar {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 2px;
+            overflow: hidden;
+            z-index: 10;
+        }
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ef4444, #22c55e);
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Hearts Container (Top Left) -->
+    <div id="hearts-container" class="hearts-container">
+        <i class="fas fa-heart heart"></i>
+        <i class="fas fa-heart heart"></i>
+        <i class="fas fa-heart heart"></i>
+    </div>
+
+    <div class="wind-indicator">
+        <i class="fas fa-wind text-blue-400"></i>
+        <span>Wind: <span id="wind-display">0.0 m/s</span></span>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <!-- The handle to OPEN the sidebar (Left side) -->
+        <div class="toggle-sidebar" onclick="toggleSidebar()" title="Open Sidebar">
+            <i class="fas fa-chevron-right" id="sidebar-icon"></i>
+        </div>
+
+        <!-- The button to CLOSE the sidebar (Top Right) -->
+        <button class="close-sidebar-btn" onclick="toggleSidebar()" title="Close Sidebar">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <div class="mb-4" style="padding-right: 20px;">
+            <div class="flex items-center gap-2 mb-1">
+                <i class="fas fa-atom text-rose-500 text-xl"></i>
+                <h1 class="text-xl angry-title tracking-wider">ANGRY BIRDS PHYSICS</h1>
+            </div>
+            <p class="text-[9px] text-blue-400 font-bold uppercase tracking-widest">Destructive Physics Simulation</p>
+            <div class="flex items-center gap-2 mt-2 text-[10px] text-slate-400">
+                <i class="fas fa-graduation-cap"></i>
+                <span>Grade 12 Physics Simulation</span>
+            </div>
+        </div>
+
+        <!-- 1. Projectile System -->
+        <div class="panel-card" style="border-left-color: #f43f5e;" id="panel-projectile">
+            <div class="panel-header text-rose-400" onclick="togglePanel('projectile')">
+                <span><i class="fas fa-project-diagram mr-2"></i>Projectile Motion</span>
+                <i class="fas fa-chevron-down text-xs panel-icon" id="icon-projectile"></i>
+            </div>
+            <div class="panel-content math-font" id="content-projectile">
+                <div class="eq-box">y(t) = y₀ + v₀y·t - ½gt² | x(t) = x₀ + v₀x·t</div>
+                <div class="val-row mt-2"><span class="label">Launch θ:</span><span class="value" id="out-angle">0.0°</span></div>
+                <div class="val-row"><span class="label">Init Speed (v₀):</span><span class="value" id="out-v0">0.0 m/s</span></div>
+                <div class="val-row"><span class="label">Max Range (R):</span><span class="value" id="out-range">0.0 m</span></div>
+                <div class="val-row"><span class="label">Peak Height (H):</span><span class="value" id="out-height">0.0 m</span></div>
+                <div class="val-row"><span class="label">Flight Time (T):</span><span class="value" id="out-time">0.0 s</span></div>
+            </div>
+        </div>
+
+        <!-- 2. Spring System (UPDATED) -->
+        <div class="panel-card" style="border-left-color: #f59e0b;" id="panel-spring">
+            <div class="panel-header text-amber-400" onclick="togglePanel('spring')">
+                <span><i class="fas fa-sliders-h mr-2"></i>Hooke's Law</span>
+                <i class="fas fa-chevron-down text-xs panel-icon" id="icon-spring"></i>
+            </div>
+            <div class="panel-content math-font" id="content-spring">
+                <div class="eq-box">F = -kΔx | W = F_avg · d</div>
+                
+                <div class="val-row mt-2">
+                    <span class="label">Displacement (d):</span>
+                    <span class="value" id="out-dx">0.00 m</span>
+                </div>
+                <div class="val-row">
+                    <span class="label">Max Force (F_max):</span>
+                    <span class="value" id="out-force">0.00 N</span>
+                </div>
+                <div class="val-row" style="color: #60a5fa;">
+                    <span class="label">Avg Force (F_avg):</span>
+                    <span class="value" id="out-avg-force">0.00 N</span>
+                </div>
+                <div class="val-row" style="font-weight: 900; color: #fbbf24; border-top: 1px dashed rgba(255,255,255,0.2);">
+                    <span class="label">Work (F_avg · d):</span>
+                    <span class="value" id="out-work-fd">0.00 J</span>
+                </div>
+                
+                <div class="val-row mt-2">
+                    <span class="label">Elastic PE (½kx²):</span>
+                    <span class="value" id="out-upe">0.00 J</span>
+                </div>
+                <div class="val-row">
+                    <span class="label">Oscillation Period:</span>
+                    <span class="value" id="out-period">0.00 s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Work & Energy -->
+        <div class="panel-card" style="border-left-color: #10b981;" id="panel-energy">
+            <div class="panel-header text-emerald-400" onclick="togglePanel('energy')">
+                <span><i class="fas fa-bolt mr-2"></i>Work-Energy</span>
+                <i class="fas fa-chevron-down text-xs panel-icon" id="icon-energy"></i>
+            </div>
+            <div class="panel-content math-font" id="content-energy">
+                <div class="eq-box">E_total = KE + PE_g + PE_s | W = ΔE</div>
+                <div class="val-row mt-2"><span class="label">Kinetic (½mv²):</span><span class="value" id="out-ke">0.00 J</span></div>
+                <div class="val-row"><span class="label">Potential (mgh):</span><span class="value" id="out-pe">0.00 J</span></div>
+                <div class="val-row"><span class="label">Work Done:</span><span class="value" id="out-work">0.00 J</span></div>
+                <div class="progress-bar"><div class="progress-fill" id="energy-bar" style="width: 0%"></div></div>
+                <div class="val-row font-bold border-t border-white/10 mt-1 pt-1"><span class="label">Total System:</span><span class="value" id="out-etot">0.00 J</span></div>
+            </div>
+        </div>
+
+        <!-- 4. Collision Analysis -->
+        <div class="panel-card" style="border-left-color: #8b5cf6;" id="panel-collision">
+            <div class="panel-header text-purple-400" onclick="togglePanel('collision')">
+                <span><i class="fas fa-explosion mr-2"></i>Collision Physics</span>
+                <i class="fas fa-chevron-down text-xs panel-icon" id="icon-collision"></i>
+            </div>
+            <div class="panel-content math-font" id="content-collision">
+                <div class="eq-box">Δp = FΔt | L = Iω (Angular Momentum)</div>
+                <div class="val-row mt-2"><span class="label">Impact Impulse:</span><span class="value" id="out-imp">0.0 N·s</span></div>
+                <div class="val-row"><span class="label">Impact Energy:</span><span class="value" id="out-impact-energy">0.0 J</span></div>
+                <div class="val-row font-bold"><span class="label">Pigs Destroyed:</span><span class="value" id="out-kills">0/5</span></div>
+            </div>
+        </div>
+
+        <!-- Enhanced Controls with Better Sliders -->
+        <div class="slider-container mt-2">
+            <div class="text-[9px] uppercase font-bold text-slate-400 mb-2 flex items-center">
+                <i class="fas fa-sliders mr-2"></i>Physics Parameters
+            </div>
+            
+            <!-- Gravity Slider -->
+            <div class="slider-wrapper">
+                <div class="slider-label">Gravity (g)</div>
+                <input type="range" id="g-slider" min="1" max="30" step="0.5" value="9.8" class="slider">
+                <div class="slider-value" id="g-val">9.8 m/s²</div>
+            </div>
+            
+            <!-- Spring Constant Slider -->
+            <div class="slider-wrapper">
+                <div class="slider-label">Spring (k)</div>
+                <input type="range" id="k-slider" min="1" max="100" step="1" value="25" class="slider">
+                <div class="slider-value" id="k-val">25 N/m</div>
+            </div>
+            
+            <!-- Mass Slider -->
+            <div class="slider-wrapper">
+                <div class="slider-label">Mass (m)</div>
+                <input type="range" id="m-slider" min="0.1" max="10" step="0.1" value="1.5" class="slider">
+                <div class="slider-value" id="m-val">1.5 kg</div>
+            </div>
+            
+            <!-- Wind Force Slider -->
+            <div class="slider-wrapper">
+                <div class="slider-label">Wind</div>
+                <input type="range" id="wind-slider" min="-15" max="15" step="0.5" value="0" class="slider">
+                <div class="slider-value" id="wind-val">0.0 m/s</div>
+            </div>
+            
+            <!-- Quick Action Buttons -->
+            <div class="quick-actions">
+                <div class="quick-action-btn" onclick="setDefaultParams()">
+                    <i class="fas fa-undo mr-1"></i>Defaults
+                </div>
+                <div class="quick-action-btn" onclick="setZeroGravity()">
+                    <i class="fas fa-moon mr-1"></i>Zero-G
+                </div>
+                <div class="quick-action-btn" onclick="setHighGravity()">
+                    <i class="fas fa-weight-hanging mr-1"></i>Heavy
+                </div>
+            </div>
+        </div>
+
+        <div class="compact-buttons">
+            <button class="btn-game bg-rose-600 text-white shadow-lg shadow-rose-900/20 flex-1" onclick="resetGame()">
+                <i class="fas fa-redo mr-1"></i>RESET
+            </button>
+            <button class="btn-game bg-blue-600 text-white shadow-lg shadow-blue-900/20 flex-1" onclick="togglePause()" id="pause-btn">
+                <i class="fas fa-pause mr-1"></i>PAUSE
+            </button>
+            <button class="btn-game bg-emerald-600 text-white shadow-lg shadow-emerald-900/20 flex-1" onclick="nextLevel()">
+                <i class="fas fa-arrow-right mr-1"></i>NEXT
+            </button>
+        </div>
+        
+        <div class="mt-4 text-center text-[10px] text-slate-500">
+            <p><i class="fas fa-info-circle mr-1"></i>Drag bird back to launch. Destroy all pigs to win!</p>
+            <p class="mt-1"><i class="fas fa-keyboard mr-1"></i>Hotkeys: P=Pause, R=Reset, N=Next Level, H=Hitboxes, S=Sidebar</p>
+        </div>
+    </div>
+    
+    <!-- Hitbox Toggle moved to Bottom Left -->
+    <div class="hitbox-toggle" onclick="toggleHitboxes()" id="hitbox-toggle" title="Toggle Hitboxes (H)">
+        <i class="fas fa-square"></i>
+        <span>Hitboxes: OFF</span>
+    </div>
+    
+    <div id="toast">PIG DESTROYED!</div>
+    <div id="info-bubble" class="info-bubble"></div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Enhanced Physics Constants & Scaling
+        const SCALE = 50; // 50 pixels = 1 meter
+        
+        // Physics State Constants
+        const PHYSICS_STATE = {
+            LOCKED: 0,    // Pre-launch, no physics
+            DYNAMIC: 1,   // Active physics
+            STATIC: 2     // Ground, never moves
+        };
+        
+        // Pig destruction threshold (kinetic energy in Joules)
+        const PIG_DESTRUCTION_THRESHOLD = 6;
+        
+        let WORLD = {
+            g: 9.8,        // m/s²
+            k: 25,         // N/m
+            birdMass: 1.5, // kg
+            windForce: 0.0, // m/s
+            restitution: 0.4, // Bounciness (lowered for more "thud" realistic feel)
+            friction: 0.5,    // Surface friction (wood on wood)
+            groundY: 0,
+            paused: false
+        };
+
+        const SLING = { x: 0, y: 0 }; 
+        const MAX_STRETCH = 120; // pixels
+
+        let bodies = [];
+        let birds = [];
+        let currentBird = null;
+        let isDragging = false;
+        let dragPos = { x: 0, y: 0 };
+        let lastImpulse = 0;
+        let lastImpactEnergy = 0;
+        let killCount = 0;
+        let totalPigs = 0;
+        let particles = [];
+        let totalWorkDone = 0;
+        let infoBubble = { show: false, x: 0, y: 0, text: "" };
+        let mousePos = { x: 0, y: 0 };
+        let showHitboxes = false;
+        let currentLevel = 1;
+        let birdReleased = false; 
+        
+        // Game State: Attempts Left
+        let maxAttempts = 3;
+        let attemptsLeft = 3;
+        
+        // Panel state
+        const panelState = {
+            projectile: true,
+            spring: true,
+            energy: true,
+            collision: true
+        };
+
+        // --- Hearts/Lives Management ---
+        function updateHearts() {
+            const container = document.getElementById('hearts-container');
+            container.innerHTML = ''; // Clear existing
+            
+            for (let i = 0; i < maxAttempts; i++) {
+                const heart = document.createElement('i');
+                heart.className = 'fas fa-heart heart';
+                if (i >= attemptsLeft) {
+                    heart.classList.add('lost');
+                }
+                container.appendChild(heart);
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('sidebar-icon');
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                // Sidebar is closed
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+            } else {
+                // Sidebar is open
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+            }
+        }
+
+        function togglePanel(panelName) {   
+            const content = document.getElementById(`content-${panelName}`);
+            const icon = document.getElementById(`icon-${panelName}`);
+            
+            panelState[panelName] = !panelState[panelName];
+            
+            if (panelState[panelName]) {
+                content.classList.add('expanded');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                content.classList.remove('expanded');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
+        }
+
+        function toggleHitboxes() {
+            showHitboxes = !showHitboxes;
+            const toggle = document.getElementById('hitbox-toggle');
+            if (showHitboxes) {
+                toggle.innerHTML = '<i class="fas fa-square"></i><span>Hitboxes: ON</span>';
+                toggle.classList.add('active');
+            } else {
+                toggle.innerHTML = '<i class="fas fa-square"></i><span>Hitboxes: OFF</span>';
+                toggle.classList.remove('active');
+            }
+        }
+
+        function syncParams() {
+            WORLD.g = parseFloat(document.getElementById('g-slider').value);
+            WORLD.k = parseFloat(document.getElementById('k-slider').value);
+            WORLD.birdMass = parseFloat(document.getElementById('m-slider').value);
+            WORLD.windForce = parseFloat(document.getElementById('wind-slider').value);
+            
+            document.getElementById('g-val').innerText = WORLD.g.toFixed(1) + " m/s²";
+            document.getElementById('k-val').innerText = WORLD.k.toFixed(0) + " N/m";
+            document.getElementById('m-val').innerText = WORLD.birdMass.toFixed(1) + " kg";
+            document.getElementById('wind-val').innerText = WORLD.windForce.toFixed(1) + " m/s";
+            document.getElementById('wind-display').innerText = WORLD.windForce.toFixed(1) + " m/s";
+        }
+
+        function setDefaultParams() {
+            document.getElementById('g-slider').value = 9.8;
+            document.getElementById('k-slider').value = 25;
+            document.getElementById('m-slider').value = 1.5;
+            document.getElementById('wind-slider').value = 0;
+            syncParams();
+        }
+
+        function setZeroGravity() {
+            document.getElementById('g-slider').value = 0.1;
+            syncParams();
+        }
+
+        function setHighGravity() {
+            document.getElementById('g-slider').value = 20;
+            document.getElementById('m-slider').value = 3.0;
+            syncParams();
+        }
+
+        // Cross product in 2D (returns scalar z-component)
+        const cross = (a, b) => a.x * b.y - a.y * b.x;
+        // Cross product of scalar and vector (returns vector)
+        const crossSV = (s, v) => ({ x: -s * v.y, y: s * v.x });
+        // Dot product
+        const dot = (a, b) => a.x * b.x + a.y * b.y;
+        // Vector addition
+        const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y });
+        // Vector subtraction
+        const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
+        // Vector mult by scalar
+        const mult = (v, s) => ({ x: v.x * s, y: v.y * s });
+
+        class PhysicsBody {
+            constructor(x, y, options = {}) {
+                this.x = x; this.y = y;
+                this.vx = options.vx || 0;
+                this.vy = options.vy || 0;
+                this.mass = options.mass || 1.0;
+                this.w = options.w || 40;
+                this.h = options.h || 40;
+                this.r = options.r || 22;
+                this.type = options.type || 'rect';
+                this.color = options.color || '#cbd5e1';
+                this.angle = 0;
+                this.va = 0; // Angular velocity
+                
+                // Use state system
+                this.state = options.state || (options.isStatic ? PHYSICS_STATE.STATIC : PHYSICS_STATE.LOCKED);
+                
+                this.isPig = options.isPig || false;
+                this.isBird = options.isBird || false;
+                this.isWood = options.isWood || false;
+                this.isStone = options.isStone || false;
+                this.hp = options.hp || 10;
+                this.maxHp = options.hp || 10;
+                this.isAlive = true;
+                this.trail = [];
+                this.maxTrail = 10;
+                this.id = Math.random().toString(36).substr(2, 9);
+                
+                // Hitbox properties
+                this.hitboxRadius = this.r * 0.85;
+                this.hitboxWidth = this.w * 0.85;
+                this.hitboxHeight = this.h * 0.85;
+                this.lastCollisionTime = 0;
+                
+                // --- GRADE 12 PHYSICS: MOMENT OF INERTIA ---
+                // I for Rect: m(w^2 + h^2)/12
+                // I for Circle: mr^2/2
+                if (this.type === 'rect') {
+                    // Convert width/height to meters for calculation to keep units consistent, or use pixels relative to mass
+                    // Using pixel units directly for simplicity in this engine, treating mass as generic unit
+                    this.inertia = this.mass * (this.w * this.w + this.h * this.h) / 12;
+                } else {
+                    this.inertia = this.mass * this.r * this.r / 2;
+                }
+                
+                this.invMass = (this.state === PHYSICS_STATE.STATIC) ? 0 : 1 / this.mass;
+                this.invInertia = (this.state === PHYSICS_STATE.STATIC) ? 0 : 1 / this.inertia;
+                
+                // Material properties
+                this.strength = options.strength || 1.0;
+                if (this.isWood) this.strength = 0.7;
+                if (this.isStone) this.strength = 1.5;
+                if (this.isPig) this.strength = 0.5;
+                
+                this.unlock = function() {
+                    if (this.state === PHYSICS_STATE.LOCKED) {
+                        this.state = PHYSICS_STATE.DYNAMIC;
+                        this.invMass = 1 / this.mass;
+                        this.invInertia = 1 / this.inertia;
+                        this.vx = 0; this.vy = 0; this.va = 0;
+                    }
+                };
+            }
+
+            update() {
+                if (WORLD.paused || !this.isAlive) return;
+                
+                if (this.state === PHYSICS_STATE.STATIC) return;
+                
+                if (this.state === PHYSICS_STATE.LOCKED) {
+                    this.vx = 0; this.vy = 0; this.va = 0;
+                    return;
+                }
+                
+                if (this.state === PHYSICS_STATE.DYNAMIC) {
+                    // Apply Gravity (F = mg -> a = g)
+                    // Convert g (m/s²) to px/s² then px/frame²
+                    const g_pixels = WORLD.g * SCALE;
+                    this.vy += g_pixels / 3600;
+                    
+                    // Apply Wind
+                    const windPixels = WORLD.windForce * SCALE;
+                    this.vx += windPixels / 3600;
+                    
+                    // Air Resistance (Linear Damping) - prevents infinite acceleration
+                    this.vx *= 0.995;
+                    this.vy *= 0.995;
+                    // Angular Damping - prevents spinning forever
+                    this.va *= 0.96;
+
+                    // Update Position
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.angle += this.va;
+
+                    // Trail logic
+                    if (Math.abs(this.vx) > 0.5 || Math.abs(this.vy) > 0.5) {
+                        this.trail.push({x: this.x, y: this.y});
+                        if (this.trail.length > this.maxTrail) this.trail.shift();
+                    }
+
+                    // Ground Collision
+                    const bounds = this.getBounds();
+                    if (bounds.bottom > WORLD.groundY) {
+                        const overlap = bounds.bottom - WORLD.groundY;
+                        this.y -= overlap;
+                        
+                        // Bounce (Restitution)
+                        this.vy *= -WORLD.restitution;
+                        // Friction with ground (affects vx)
+                        this.vx *= 0.8;
+                        
+                        // Ground induces rotation if moving sideways
+                        // Simple approximation: torque due to friction
+                        this.va += -this.vx * 0.01; 
+
+                        // Stop if slow enough
+                        if (Math.abs(this.vy) < 0.3 && Math.abs(this.vx) < 0.2) {
+                            this.vy = 0; this.vx = 0; this.va = 0;
+                        }
+                        
+                        if (Math.abs(this.vy) > 2) {
+                            createImpactParticles(this.x, this.y + (this.type === 'circle' ? this.r : this.h/2), Math.abs(this.vy));
+                        }
+                    }
+                    
+                    // Screen Bounds
+                    if (this.x < 50) { this.x = 50; this.vx *= -0.5; }
+                    if (this.x > canvas.width - 50) { this.x = canvas.width - 50; this.vx *= -0.5; }
+                }
+            }
+
+            getBounds() {
+                if (this.type === 'circle') {
+                    return { top: this.y - this.hitboxRadius, bottom: this.y + this.hitboxRadius, left: this.x - this.hitboxRadius, right: this.x + this.hitboxRadius };
+                }
+                const cos = Math.cos(this.angle);
+                const sin = Math.sin(this.angle);
+                const hw = this.hitboxWidth / 2;
+                const hh = this.hitboxHeight / 2;
+                const corners = [
+                    {x: -hw, y: -hh}, {x: hw, y: -hh}, {x: hw, y: hh}, {x: -hw, y: hh}
+                ];
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (const c of corners) {
+                    const rx = this.x + (c.x * cos - c.y * sin);
+                    const ry = this.y + (c.x * sin + c.y * cos);
+                    minX = Math.min(minX, rx); maxX = Math.max(maxX, rx);
+                    minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
+                }
+                return { top: minY, bottom: maxY, left: minX, right: maxX };
+            }
+
+            takeDamage(damage) {
+                if (!this.isAlive) return;
+                this.hp -= damage;
+                createDamageParticles(this.x, this.y, damage, this.color);
+                if (this.hp <= 0) {
+                    this.die();
+                    return true;
+                }
+                return false;
+            }
+
+            die() {
+                if (!this.isAlive) return;
+                this.isAlive = false;
+                if (this.isPig) {
+                    killCount++;
+                    showToast();
+                }
+                createDeathParticles(this.x, this.y, this.color);
+                if (killCount >= totalPigs) {
+                    setTimeout(() => showToast("LEVEL COMPLETE!"), 1000);
+                }
+            }
+
+            drawHealthBar() {
+                if (!this.isAlive || this.isBird || (!this.isPig && !this.isWood && !this.isStone)) return;
+                const healthPercent = (this.hp / this.maxHp) * 100;
+                const barWidth = 30;
+                ctx.save();
+                ctx.translate(this.x, this.y - (this.type === 'circle' ? this.r + 15 : this.h/2 + 15));
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(-barWidth/2, 0, barWidth, 5);
+                const gradient = ctx.createLinearGradient(-barWidth/2, 0, barWidth/2, 0);
+                gradient.addColorStop(0, '#ef4444'); gradient.addColorStop(0.5, '#f59e0b'); gradient.addColorStop(1, '#22c55e');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-barWidth/2, 0, barWidth * (healthPercent / 100), 5);
+                ctx.restore();
+            }
+
+            draw() {
+                if (!this.isAlive) return;
+                
+                if (this.trail.length > 1 && Math.abs(this.vx) + Math.abs(this.vy) > 0.5) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const alpha = i / this.trail.length * 0.3;
+                        const point = this.trail[i];
+                        ctx.lineTo(point.x, point.y);
+                    }
+                    ctx.strokeStyle = `rgba(59, 130, 246, 0.3)`;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+                if (this.type === 'circle') {
+                    ctx.beginPath(); ctx.ellipse(3, 3, this.r, this.r * 0.5, 0, 0, Math.PI*2); ctx.fill();
+                } else {
+                    ctx.fillRect(-this.w/2 + 3, -this.h/2 + 3, this.w, this.h * 0.5);
+                }
+                
+                // Body
+                let fillColor = this.color;
+                if (this.hp < this.maxHp * 0.3) fillColor = this.color.replace(')', ', 0.8)').replace('rgb', 'rgba');
+                
+                ctx.fillStyle = fillColor;
+                ctx.strokeStyle = "rgba(0,0,0,0.4)";
+                ctx.lineWidth = 1.5;
+
+                if (this.type === 'circle') {
+                    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.r);
+                    gradient.addColorStop(0, fillColor);
+                    gradient.addColorStop(1, fillColor.replace(')', ', 0.6)').replace('rgb', 'rgba'));
+                    ctx.fillStyle = gradient;
+                    
+                    ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+                    if (this.isBird) {
+                        ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.beginPath(); ctx.arc(0, 5, this.r * 0.7, 0, Math.PI, false); ctx.fill();
+                        ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.lineCap = "round";
+                        ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(-2, -6); ctx.moveTo(10, -10); ctx.lineTo(2, -6); ctx.stroke();
+                        ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(-5, -2, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5, -2, 4, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(-4, -2, 1.5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4, -2, 1.5, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "#fbbf24"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(8, 4); ctx.lineTo(0, 8); ctx.lineTo(-8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+                    } else if (this.isPig) {
+                        ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.beginPath(); ctx.arc(-5, -3, 2.5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5, -3, 2.5, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.beginPath(); ctx.ellipse(0, 3, 7, 5, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "#166534"; ctx.beginPath(); ctx.arc(-2.5, 3, 1.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2.5, 3, 1.2, 0, Math.PI*2); ctx.fill();
+                        if (this.hp < this.maxHp * 0.5) {
+                            ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1;
+                            ctx.beginPath(); ctx.moveTo(-this.r*0.3, -this.r*0.2); ctx.lineTo(-this.r*0.1, this.r*0.1);
+                            ctx.moveTo(this.r*0.2, -this.r*0.3); ctx.lineTo(this.r*0.4, this.r*0.2); ctx.stroke();
+                        }
+                    }
+                } else {
+                    ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+                    ctx.strokeRect(-this.w/2, -this.h/2, this.w, this.h);
+                    
+                    if (this.isWood) {
+                        ctx.strokeStyle = "rgba(120, 53, 15, 0.6)"; ctx.lineWidth = 0.8;
+                        for (let i = -this.w/2 + 4; i < this.w/2; i += 6) {
+                            ctx.beginPath(); ctx.moveTo(i, -this.h/2 + 2); ctx.lineTo(i, this.h/2 - 2); ctx.stroke();
+                        }
+                        if (this.hp < this.maxHp * 0.5) {
+                            ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 1.2;
+                            ctx.beginPath(); ctx.moveTo(-this.w/4, -this.h/4); ctx.lineTo(this.w/6, this.h/6);
+                            ctx.moveTo(this.w/4, -this.h/4); ctx.lineTo(-this.w/6, this.h/6); ctx.stroke();
+                        }
+                    } else if (this.isStone) {
+                        ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
+                        for (let i = 0; i < 5; i++) {
+                            const size = 3 + Math.random() * 4;
+                            const x = -this.w/2 + Math.random() * this.w;
+                            const y = -this.h/2 + Math.random() * this.h;
+                            ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+                        }
+                    }
+                }
+                
+                ctx.restore();
+                this.drawHealthBar();
+                
+                if (showHitboxes) {
+                    ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+                    ctx.strokeStyle = "rgba(0, 255, 0, 0.5)"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                    if (this.type === 'circle') {
+                        ctx.beginPath(); ctx.arc(0, 0, this.hitboxRadius, 0, Math.PI * 2); ctx.stroke();
+                    } else {
+                        ctx.strokeRect(-this.hitboxWidth/2, -this.hitboxHeight/2, this.hitboxWidth, this.hitboxHeight);
+                    }
+                    ctx.setLineDash([]); ctx.restore();
+                }
+            }
+        }
+
+        // --- RIGID BODY COLLISION RESOLUTION ---
+
+        function detectCircleCircle(a, b) {
+            const dx = b.x - a.x; const dy = b.y - a.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const minDist = a.hitboxRadius + b.hitboxRadius;
+            if (dist < minDist && dist > 0) {
+                window.collisionNx = dx / dist; window.collisionNy = dy / dist;
+                window.collisionPenetration = minDist - dist;
+                // Contact point (approximate)
+                window.contactX = a.x + window.collisionNx * a.hitboxRadius;
+                window.contactY = a.y + window.collisionNy * a.hitboxRadius;
+                return true;
+            }
+            return false;
+        }
+
+        function detectCircleRect(circle, rect) {
+            const dx = circle.x - rect.x; const dy = circle.y - rect.y;
+            const cos = Math.cos(-rect.angle); const sin = Math.sin(-rect.angle);
+            const localX = dx * cos - dy * sin; const localY = dx * sin + dy * cos;
+            const closestX = Math.max(-rect.hitboxWidth/2, Math.min(localX, rect.hitboxWidth/2));
+            const closestY = Math.max(-rect.hitboxHeight/2, Math.min(localY, rect.hitboxHeight/2));
+            const distX = localX - closestX; const distY = localY - closestY;
+            const distanceSquared = distX*distX + distY*distY;
+            
+            if (distanceSquared < circle.hitboxRadius * circle.hitboxRadius) {
+                const distance = Math.sqrt(distanceSquared);
+                if (distance > 0.001) {
+                    const localNx = distX / distance; const localNy = distY / distance;
+                    window.collisionNx = localNx * cos - localNy * -sin;
+                    window.collisionNy = localNx * -sin + localNy * cos;
+                    window.collisionPenetration = circle.hitboxRadius - distance;
+                    window.contactX = rect.x + closestX * cos - closestY * sin;
+                    window.contactY = rect.y + closestX * sin + closestY * cos;
+                } else {
+                    // Inside rect
+                    const absX = Math.abs(localX); const absY = Math.abs(localY);
+                    let localNx = 0, localNy = 0;
+                    if (absX > absY) { localNx = localX > 0 ? 1 : -1; localNy = 0; window.collisionPenetration = circle.hitboxRadius + (rect.hitboxWidth/2 - absX); }
+                    else { localNx = 0; localNy = localY > 0 ? 1 : -1; window.collisionPenetration = circle.hitboxRadius + (rect.hitboxHeight/2 - absY); }
+                    window.collisionNx = localNx * cos - localNy * -sin;
+                    window.collisionNy = localNx * -sin + localNy * cos;
+                    window.contactX = circle.x; window.contactY = circle.y;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        function detectRectRect(a, b) {
+            // Simplified OBB or SAT is complex. Using bounding centers and min penetration for robustness in this context.
+            // For true Angry Birds, we need the "closest point on perimeter" logic.
+            // To keep code contained and robust, we approximate the contact point based on overlap.
+            
+            // Transform A's center to B's local space to find closest point on B to A
+            const dx = a.x - b.x; const dy = a.y - b.y;
+            const cos = Math.cos(-b.angle); const sin = Math.sin(-b.angle);
+            const localX = dx * cos - dy * sin; const localY = dx * sin + dy * cos;
+            
+            const closestX = Math.max(-b.hitboxWidth/2, Math.min(localX, b.hitboxWidth/2));
+            const closestY = Math.max(-b.hitboxHeight/2, Math.min(localY, b.hitboxHeight/2));
+            
+            // Convert closest point on B back to World
+            const worldClosestX = b.x + closestX * cos - closestY * sin;
+            const worldClosestY = b.y + closestX * sin + closestY * cos;
+            
+            // Now check if this point is inside A (using A's local space)
+            const adx = worldClosestX - a.x; const ady = worldClosestY - a.y;
+            const acos = Math.cos(-a.angle); const asin = Math.sin(-a.angle);
+            const aLocalX = adx * acos - ady * asin; const aLocalY = adx * asin + ady * acos;
+            
+            if (aLocalX >= -a.hitboxWidth/2 && aLocalX <= a.hitboxWidth/2 &&
+                aLocalY >= -a.hitboxHeight/2 && aLocalY <= a.hitboxHeight/2) {
+                
+                // Determine Normal based on penetration depth of edges
+                // This is a simplified normal estimation
+                const distX = (a.hitboxWidth/2 - Math.abs(aLocalX));
+                const distY = (a.hitboxHeight/2 - Math.abs(aLocalY));
+                
+                if (distX < distY) {
+                    // Horizontal collision relative to A
+                    // Calculate normal in world space
+                    const sign = aLocalX > 0 ? 1 : -1;
+                    window.collisionNx = sign * Math.cos(a.angle);
+                    window.collisionNy = sign * Math.sin(a.angle);
+                    window.collisionPenetration = distX;
+                } else {
+                    // Vertical collision
+                    const sign = aLocalY > 0 ? 1 : -1;
+                    window.collisionNx = -sign * Math.sin(a.angle);
+                    window.collisionNy = sign * Math.cos(a.angle);
+                    window.collisionPenetration = distY;
+                }
+                
+                window.contactX = worldClosestX;
+                window.contactY = worldClosestY;
+                return true;
+            }
+            return false;
+        }
+
+        function resolveCollision(a, b) {
+            if (!a.isAlive || !b.isAlive) return;
+            if (a.state === PHYSICS_STATE.LOCKED && b.state === PHYSICS_STATE.LOCKED) return;
+            if (a.state === PHYSICS_STATE.STATIC && b.state === PHYSICS_STATE.STATIC) return;
+            
+            let collision = false;
+            window.collisionNx = 0; window.collisionNy = 0; window.collisionPenetration = 0;
+            window.contactX = 0; window.contactY = 0;
+
+            if (a.type === 'circle' && b.type === 'circle') collision = detectCircleCircle(a, b);
+            else if (a.type === 'circle' && b.type === 'rect') collision = detectCircleRect(a, b);
+            else if (a.type === 'rect' && b.type === 'circle') { collision = detectCircleRect(b, a); window.collisionNx = -window.collisionNx; window.collisionNy = -window.collisionNy; [a, b] = [b, a]; }
+            else if (a.type === 'rect' && b.type === 'rect') collision = detectRectRect(a, b);
+
+            if (!collision) return;
+
+            // --- RIGID BODY PHYSICS SOLVER ---
+            // Contact point vectors from center of mass
+            const ra = { x: window.contactX - a.x, y: window.contactY - a.y };
+            const rb = { x: window.contactX - b.x, y: window.contactY - b.y };
+            
+            // Relative velocity at contact point
+            // V_p = V_cm + omega x r
+            // 2D cross product of scalar(omega) and vector(r) is (-omega*ry, omega*rx)
+            const vap = { x: a.vx - a.va * ra.y, y: a.vy + a.va * ra.x };
+            const vbp = { x: b.vx - b.va * rb.y, y: b.vy + b.va * rb.x };
+            
+            const rv = { x: vbp.x - vap.x, y: vbp.y - vap.y };
+            
+            // Velocity along normal
+            const velAlongNormal = dot(rv, {x: window.collisionNx, y: window.collisionNy});
+            
+            if (velAlongNormal > 0) return; // Moving apart
+
+            const e = Math.min(a.strength, b.strength) * WORLD.restitution;
+            
+            // Calculate impulse scalar
+            // J = -(1+e)v_rel.n / (1/ma + 1/mb + (ra x n)^2/Ia + (rb x n)^2/Ib)
+            const raCrossN = cross(ra, {x: window.collisionNx, y: window.collisionNy});
+            const rbCrossN = cross(rb, {x: window.collisionNx, y: window.collisionNy});
+            
+            const invMassSum = a.invMass + b.invMass + 
+                               (raCrossN * raCrossN) * a.invInertia + 
+                               (rbCrossN * rbCrossN) * b.invInertia;
+            
+            if (invMassSum === 0) return;
+
+            let j = -(1 + e) * velAlongNormal;
+            j /= invMassSum;
+            
+            // Apply Impulse
+            const impulse = { x: j * window.collisionNx, y: j * window.collisionNy };
+            
+            if (a.state === PHYSICS_STATE.DYNAMIC) {
+                a.vx -= impulse.x * a.invMass;
+                a.vy -= impulse.y * a.invMass;
+                a.va -= a.invInertia * cross(ra, impulse);
+            }
+            if (b.state === PHYSICS_STATE.DYNAMIC) {
+                b.vx += impulse.x * b.invMass;
+                b.vy += impulse.y * b.invMass;
+                b.va += b.invInertia * cross(rb, impulse);
+            }
+            
+            // --- FRICTION IMPULSE ---
+            // Re-calculate relative velocity after normal impulse
+            const vap2 = { x: a.vx - a.va * ra.y, y: a.vy + a.va * ra.x };
+            const vbp2 = { x: b.vx - b.va * rb.y, y: b.vy + b.va * rb.x };
+            const rv2 = { x: vbp2.x - vap2.x, y: vbp2.y - vap2.y };
+            
+            // Tangent vector (perpendicular to normal)
+            let tangent = { x: -window.collisionNy, y: window.collisionNx };
+            // Reorient tangent against velocity
+            const jt = dot(rv2, tangent);
+            
+            // Solve for tangent impulse magnitude
+            const raCrossT = cross(ra, tangent);
+            const rbCrossT = cross(rb, tangent);
+            const invMassSumT = a.invMass + b.invMass + 
+                                (raCrossT * raCrossT) * a.invInertia + 
+                                (rbCrossT * rbCrossT) * b.invInertia;
+            
+            let frictionImpulseMag = -jt / invMassSumT;
+            
+            // Coulomb's Law clamp
+            const mu = WORLD.friction;
+            frictionImpulseMag = Math.max(-j * mu, Math.min(j * mu, frictionImpulseMag));
+            
+            const frictionImpulse = { x: frictionImpulseMag * tangent.x, y: frictionImpulseMag * tangent.y };
+            
+            if (a.state === PHYSICS_STATE.DYNAMIC) {
+                a.vx -= frictionImpulse.x * a.invMass;
+                a.vy -= frictionImpulse.y * a.invMass;
+                a.va -= a.invInertia * cross(ra, frictionImpulse);
+            }
+            if (b.state === PHYSICS_STATE.DYNAMIC) {
+                b.vx += frictionImpulse.x * b.invMass;
+                b.vy += frictionImpulse.y * b.invMass;
+                b.va += b.invInertia * cross(rb, frictionImpulse);
+            }
+
+            // Update Stats
+            lastImpulse = Math.abs(j);
+            
+            // Positional Correction (prevent sinking)
+            const percent = 0.2; // Penetration percentage to correct
+            const slop = 0.01; // Penetration allowance
+            const correctionMag = Math.max(window.collisionPenetration - slop, 0) / invMassSum * percent;
+            const correction = { x: correctionMag * window.collisionNx, y: correctionMag * window.collisionNy };
+            
+            if (a.state === PHYSICS_STATE.DYNAMIC) {
+                a.x -= correction.x * a.invMass;
+                a.y -= correction.y * a.invMass;
+            }
+            if (b.state === PHYSICS_STATE.DYNAMIC) {
+                b.x += correction.x * b.invMass;
+                b.y += correction.y * b.invMass;
+            }
+
+            // Damage & Wake up logic
+            const impactKE = 0.5 * (a.mass * (a.vx**2 + a.vy**2) + b.mass * (b.vx**2 + b.vy**2));
+            lastImpactEnergy = impactKE * 0.05; // Scaling factor
+            
+            if (birdReleased && a.state === PHYSICS_STATE.LOCKED) a.unlock();
+            if (birdReleased && b.state === PHYSICS_STATE.LOCKED) b.unlock();
+            
+            const collisionPoint = { x: window.contactX, y: window.contactY };
+            createCollisionParticles(collisionPoint.x, collisionPoint.y, Math.abs(j) * 0.5);
+
+            // Pig Destruction
+            const damageThreshold = 8.0;
+            const damage = Math.abs(j) * 10; // Damage proportional to impulse
+
+            if (a.isPig && Math.abs(j) > PIG_DESTRUCTION_THRESHOLD) a.takeDamage(damage);
+            if (b.isPig && Math.abs(j) > PIG_DESTRUCTION_THRESHOLD) b.takeDamage(damage);
+            
+            // Structural Damage (Wood/Stone)
+            if ((a.isWood || a.isStone) && Math.abs(j) > 2.0) a.takeDamage(damage / a.strength);
+            if ((b.isWood || b.isStone) && Math.abs(j) > 2.0) b.takeDamage(damage / b.strength);
+            
+            checkSupportStructure(a, b);
+        }
+
+        // Support structure collapse propagation
+        function checkSupportStructure(movedObj, otherObj) {
+            // If an object moved significantly, wake up neighbors
+            const dynamic = movedObj.state === PHYSICS_STATE.DYNAMIC ? movedObj : (otherObj.state === PHYSICS_STATE.DYNAMIC ? otherObj : null);
+            if (!dynamic) return;
+
+            // Only propagate if impact was significant
+            if (Math.abs(dynamic.vx) + Math.abs(dynamic.vy) + Math.abs(dynamic.va) < 0.5) return;
+
+            const all = [...birds, ...bodies];
+            for (const obj of all) {
+                if (obj.state === PHYSICS_STATE.LOCKED && obj !== dynamic) {
+                    const bounds1 = dynamic.getBounds();
+                    const bounds2 = obj.getBounds();
+                    const proximity = 40; // pixels
+
+                    // Check proximity in Y (vertical stacking)
+                    const verticalDist = Math.abs(bounds1.top - bounds2.bottom);
+                    const horizontalOverlap = !(bounds1.right < bounds2.left || bounds1.left > bounds2.right);
+
+                    if (verticalDist < proximity && horizontalOverlap) {
+                        obj.unlock();
+                    }
+                }
+            }
+        }
+
+        function createParticle(x, y, vx, vy, color, size, life) {
+            particles.push({ x, y, vx, vy, color, size, life: life || 30, maxLife: life || 30, alpha: 1.0 });
+        }
+
+        function createCollisionParticles(x, y, energy) {
+            const count = Math.min(20, Math.floor(energy * 3));
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * energy * 0.8;
+                createParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, `hsl(${Math.random() * 30 + 10}, 100%, 60%)`, 1.5 + Math.random() * 4, 15 + Math.random() * 20);
+            }
+        }
+
+        function createDamageParticles(x, y, damage, color) {
+            const count = Math.min(10, Math.floor(damage * 0.5));
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 0.5 + Math.random() * damage * 0.1;
+                createParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, color, 1 + Math.random() * 3, 10 + Math.random() * 15);
+            }
+        }
+
+        function createImpactParticles(x, y, intensity) {
+            const count = Math.min(15, Math.floor(intensity * 2));
+            for (let i = 0; i < count; i++) {
+                const angle = Math.PI + (Math.random() * 0.6 - 0.3);
+                const speed = 0.5 + Math.random() * intensity * 0.3;
+                createParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, `hsl(${Math.random() * 20 + 30}, 60%, 70%)`, 1 + Math.random() * 3, 12 + Math.random() * 15);
+            }
+        }
+
+        function createDeathParticles(x, y, color) {
+            for (let i = 0; i < 30; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                createParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, color, 2 + Math.random() * 5, 30 + Math.random() * 30);
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                const g_pixels = WORLD.g * SCALE;
+                p.vy += g_pixels / 7200;
+                p.vx *= 0.98; p.vy *= 0.98;
+                p.life--; p.alpha = p.life / p.maxLife;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawSling() {
+            ctx.strokeStyle = "#451a03"; ctx.lineWidth = 14; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(SLING.x - 12, WORLD.groundY); ctx.lineTo(SLING.x - 12, SLING.y); ctx.stroke();
+            ctx.strokeStyle = "#5a2d0c"; ctx.lineWidth = 14;
+            ctx.beginPath(); ctx.moveTo(SLING.x + 12, WORLD.groundY); ctx.lineTo(SLING.x + 12, SLING.y); ctx.stroke();
+                
+            if (isDragging) {
+                ctx.strokeStyle = "rgba(139, 69, 19, 0.8)"; ctx.lineWidth = 8;
+                ctx.beginPath(); ctx.moveTo(SLING.x - 12, SLING.y); ctx.lineTo(dragPos.x, dragPos.y); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(SLING.x + 12, SLING.y); ctx.lineTo(dragPos.x, dragPos.y); ctx.stroke();
+                
+                const dx = SLING.x - dragPos.x; const dy = SLING.y - dragPos.y;
+                const force = Math.sqrt(dx*dx + dy*dy) / MAX_STRETCH;
+                ctx.fillStyle = `rgba(244, 63, 94, ${0.3 + force * 0.7})`;
+                ctx.beginPath(); ctx.arc(dragPos.x, dragPos.y, 20, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = "#f43f5e"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(dragPos.x, dragPos.y, 20, 0, Math.PI * 2); ctx.stroke();
+            }
+        }
+
+        function drawPrediction() {
+            if (!isDragging) return;
+            const dx = SLING.x - dragPos.x; const dy = SLING.y - dragPos.y;
+            const displacementPixels = Math.sqrt(dx*dx + dy*dy);
+            const stretchMeters = Math.min(displacementPixels, MAX_STRETCH) / SCALE;
+            
+            // --- CALCULATE LAUNCH VELOCITY USING ENERGY CONSERVATION ---
+            // 1/2 k x^2 = 1/2 m v^2  =>  v = x * sqrt(k/m)
+            const launchSpeed = stretchMeters * Math.sqrt(WORLD.k / WORLD.birdMass);
+            
+            const directionX = dx / displacementPixels;
+            const directionY = dy / displacementPixels;
+            
+            // Initial Velocity components in m/s
+            const v0x = launchSpeed * directionX;
+            const v0y = launchSpeed * directionY;
+            
+            // Convert to pixels/frame for rendering (assuming 60fps)
+            const vx_frame = (v0x * SCALE) / 60;
+            const vy_frame = (v0y * SCALE) / 60;
+            
+            let tx = dragPos.x, ty = dragPos.y;
+            let tvx = vx_frame, tvy = vy_frame;
+            
+            ctx.beginPath(); ctx.setLineDash([4, 8]); ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 1.5;
+            ctx.moveTo(tx, ty);
+            
+            for (let i = 0; i < 100; i++) {
+                const g_pixels = WORLD.g * SCALE;
+                tvy += g_pixels / 3600;
+                const windPixels = WORLD.windForce * SCALE;
+                tvx += windPixels / 3600;
+                tx += tvx; ty += tvy;
+                if (i % 3 === 0) ctx.lineTo(tx, ty);
+                if (ty > WORLD.groundY) break;
+            }
+            ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function updateHUD() {
+            const bird = currentBird || (birds.length > 0 ? birds[birds.length-1] : null);
+            let currentEnergy = 0; let maxEnergy = 100;
+            
+            if (isDragging) {
+                const dx = SLING.x - dragPos.x; const dy = SLING.y - dragPos.y;
+                const displacementPixels = Math.sqrt(dx**2 + dy**2);
+                const stretch_m = Math.min(displacementPixels, MAX_STRETCH) / SCALE; // This is 'd'
+                
+                // --- CALCULATING FORCE ---
+                const maxForce = WORLD.k * stretch_m; // F_max = kx
+                
+                // --- CALCULATING WORK (W = F * d) ---
+                // Since the force grows from 0 to maxForce, we use the Average Force.
+                // Average Force = (Initial Force + Final Force) / 2
+                // Since Initial Force is 0, Avg Force = maxForce / 2.
+                const avgForce = maxForce / 2;
+                
+                // Work = Average Force * Displacement
+                const workFd = avgForce * stretch_m;
+                
+                // --- EXISTING POTENTIAL ENERGY CALCULATION ---
+                // Note: Mathematically, (maxForce/2 * d) is exactly equal to (0.5 * k * d^2)
+                const upe = 0.5 * WORLD.k * (stretch_m**2); 
+                const period = 2 * Math.PI * Math.sqrt(WORLD.birdMass / WORLD.k);
+                
+                // --- REALISTIC LAUNCH CALCULATION (Energy Conservation) ---
+                // Using Conservation of Energy: U_spring = K_bird
+                // 0.5 * k * x^2 = 0.5 * m * v^2
+                // v = x * sqrt(k/m)
+                const v0 = stretch_m * Math.sqrt(WORLD.k / WORLD.birdMass);
+                
+                const directionX = dx / displacementPixels;
+                const directionY = dy / displacementPixels;
+                const theta = Math.atan2(-directionY, directionX);
+                
+                const v0x = v0 * Math.cos(theta); const v0y = v0 * Math.sin(theta);
+                const range = (v0**2 * Math.sin(2 * theta)) / WORLD.g;
+                const h = (v0y**2) / (2 * WORLD.g);
+                const flightTime = (2 * v0 * Math.sin(theta)) / WORLD.g;
+                
+                document.getElementById('out-angle').innerText = (theta * 180 / Math.PI).toFixed(1) + "°";
+                document.getElementById('out-v0').innerText = v0.toFixed(2) + " m/s";
+                document.getElementById('out-range').innerText = Math.max(0, range).toFixed(1) + " m";
+                document.getElementById('out-height').innerText = Math.max(0, h).toFixed(1) + " m";
+                document.getElementById('out-time').innerText = Math.max(0, flightTime).toFixed(2) + " s";
+                
+                // --- UPDATE SPRING PANEL VALUES ---
+                document.getElementById('out-dx').innerText = stretch_m.toFixed(2) + " m";
+                document.getElementById('out-force').innerText = maxForce.toFixed(2) + " N";
+                document.getElementById('out-avg-force').innerText = avgForce.toFixed(2) + " N";
+                document.getElementById('out-work-fd').innerText = workFd.toFixed(2) + " J";
+                document.getElementById('out-upe').innerText = upe.toFixed(2) + " J";
+                document.getElementById('out-period').innerText = period.toFixed(2) + " s";
+                
+                currentEnergy = upe; maxEnergy = Math.max(maxEnergy, upe * 1.2);
+            }
+            
+            if (bird && bird.state === PHYSICS_STATE.DYNAMIC) {
+                const vx_mps = (bird.vx * 60) / SCALE;
+                const vy_mps = (bird.vy * 60) / SCALE;
+                const v_mag = Math.sqrt(vx_mps**2 + vy_mps**2);
+                const h_m = Math.max(0, (WORLD.groundY - bird.y) / SCALE);
+                const ke = 0.5 * WORLD.birdMass * (v_mag**2);
+                const pe = WORLD.birdMass * WORLD.g * h_m;
+                currentEnergy = ke + pe; maxEnergy = Math.max(maxEnergy, currentEnergy * 1.2);
+                
+                document.getElementById('out-ke').innerText = ke.toFixed(2) + " J";
+                document.getElementById('out-pe').innerText = pe.toFixed(2) + " J";
+                if (birds.length > 0) {
+                    const lastBird = birds[birds.length-1];
+                    if (lastBird === bird) {
+                        const prevEnergy = totalWorkDone; totalWorkDone = currentEnergy;
+                        const workDone = totalWorkDone - prevEnergy;
+                        if (workDone > 0) document.getElementById('out-work').innerText = workDone.toFixed(2) + " J";
+                    }
+                }
+                document.getElementById('out-etot').innerText = currentEnergy.toFixed(2) + " J";
+                const energyPercent = Math.min(100, (currentEnergy / maxEnergy) * 100);
+                document.getElementById('energy-bar').style.width = energyPercent + "%";
+            }
+            
+            const impactEnergyDisplay = document.getElementById('out-impact-energy');
+            impactEnergyDisplay.innerText = lastImpactEnergy.toFixed(1) + " J";
+            document.getElementById('out-imp').innerText = lastImpulse.toFixed(1) + " N·s";
+            document.getElementById('out-kills').innerText = killCount + "/" + totalPigs;
+        }
+
+        function spawnLevel1() {
+            bodies = []; birds = []; particles = []; killCount = 0; totalPigs = 4;
+            for (let i = 0; i < canvas.width; i += 80) {
+                bodies.push(new PhysicsBody(i + 40, WORLD.groundY + 15, { w: 80, h: 30, state: PHYSICS_STATE.STATIC, color: '#065f46', type: 'rect' }));
+            }
+            const startX = Math.min(550, canvas.width * 0.5); const baseY = WORLD.groundY - 60;
+            
+            bodies.push(new PhysicsBody(startX, baseY - 20, { w: 120, h: 15, state: PHYSICS_STATE.LOCKED, color: '#fbbf24', type: 'rect', isWood: true, hp: 100, mass: 3.0 }));
+            bodies.push(new PhysicsBody(startX - 40, baseY, { w: 20, h: 40, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 60, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX + 40, baseY, { w: 20, h: 40, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 60, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX, baseY - 50, { w: 60, h: 15, state: PHYSICS_STATE.LOCKED, color: '#f59e0b', type: 'rect', isWood: true, hp: 80, mass: 2.0 }));
+            
+            bodies.push(new PhysicsBody(startX - 25, baseY - 20, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#4ade80', type: 'circle', hp: 2, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX + 25, baseY - 20, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#22c55e', type: 'circle', hp: 2, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX, baseY - 50, { r: 18, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#16a34a', type: 'circle', hp: 5, mass: 2.0 }));
+            bodies.push(new PhysicsBody(startX, baseY, { r: 20, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#15803d', type: 'circle', hp: 10, mass: 2.5 }));
+            initBird();
+        }
+
+        function spawnLevel2() {
+            bodies = []; birds = []; particles = []; killCount = 0; totalPigs = 6;
+            for (let i = 0; i < canvas.width; i += 80) {
+                bodies.push(new PhysicsBody(i + 40, WORLD.groundY + 15, { w: 80, h: 30, state: PHYSICS_STATE.STATIC, color: '#065f46', type: 'rect' }));
+            }
+            const startX = Math.min(600, canvas.width * 0.55);
+            const leftTowerX = startX - 120;
+            bodies.push(new PhysicsBody(leftTowerX, WORLD.groundY - 30, { w: 25, h: 60, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 80, mass: 2.0 }));
+            bodies.push(new PhysicsBody(leftTowerX, WORLD.groundY - 70, { w: 60, h: 15, state: PHYSICS_STATE.LOCKED, color: '#fbbf24', type: 'rect', isWood: true, hp: 90, mass: 2.5 }));
+            const rightTowerX = startX + 120;
+            bodies.push(new PhysicsBody(rightTowerX, WORLD.groundY - 30, { w: 25, h: 60, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 80, mass: 2.0 }));
+            bodies.push(new PhysicsBody(rightTowerX, WORLD.groundY - 70, { w: 60, h: 15, state: PHYSICS_STATE.LOCKED, color: '#fbbf24', type: 'rect', isWood: true, hp: 90, mass: 2.5 }));
+            bodies.push(new PhysicsBody(startX, WORLD.groundY - 90, { w: 280, h: 15, state: PHYSICS_STATE.LOCKED, color: '#f59e0b', type: 'rect', isWood: true, hp: 150, mass: 5.0 }));
+            bodies.push(new PhysicsBody(startX, WORLD.groundY - 30, { w: 25, h: 60, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 80, mass: 2.0 }));
+            bodies.push(new PhysicsBody(startX - 60, WORLD.groundY - 60, { w: 15, h: 80, angle: Math.PI/4, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 70, mass: 1.8 }));
+            bodies.push(new PhysicsBody(startX + 60, WORLD.groundY - 60, { w: 15, h: 80, angle: -Math.PI/4, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 70, mass: 1.8 }));
+            
+            bodies.push(new PhysicsBody(leftTowerX - 15, WORLD.groundY - 70, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#4ade80', type: 'circle', hp: 50, mass: 1.5 }));
+            bodies.push(new PhysicsBody(leftTowerX + 15, WORLD.groundY - 70, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#22c55e', type: 'circle', hp: 50, mass: 1.5 }));
+            bodies.push(new PhysicsBody(rightTowerX - 15, WORLD.groundY - 70, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#4ade80', type: 'circle', hp: 50, mass: 1.5 }));
+            bodies.push(new PhysicsBody(rightTowerX + 15, WORLD.groundY - 70, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#22c55e', type: 'circle', hp: 50, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX - 40, WORLD.groundY - 90, { r: 18, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#16a34a', type: 'circle', hp: 60, mass: 2.0 }));
+            bodies.push(new PhysicsBody(startX + 40, WORLD.groundY - 90, { r: 18, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#16a34a', type: 'circle', hp: 60, mass: 2.0 }));
+            initBird();
+        }
+
+        function spawnLevel3() {
+            bodies = []; birds = []; particles = []; killCount = 0; totalPigs = 8;
+            for (let i = 0; i < canvas.width; i += 80) {
+                bodies.push(new PhysicsBody(i + 40, WORLD.groundY + 15, { w: 80, h: 30, state: PHYSICS_STATE.STATIC, color: '#065f46', type: 'rect' }));
+            }
+            const startX = Math.min(650, canvas.width * 0.6);
+            bodies.push(new PhysicsBody(startX, WORLD.groundY - 15, { w: 160, h: 30, state: PHYSICS_STATE.LOCKED, color: '#9ca3af', type: 'rect', isStone: true, hp: 300, mass: 8.0 }));
+            bodies.push(new PhysicsBody(startX - 60, WORLD.groundY - 60, { w: 30, h: 90, state: PHYSICS_STATE.LOCKED, color: '#6b7280', type: 'rect', isStone: true, hp: 200, mass: 5.0 }));
+            bodies.push(new PhysicsBody(startX + 60, WORLD.groundY - 60, { w: 30, h: 90, state: PHYSICS_STATE.LOCKED, color: '#6b7280', type: 'rect', isStone: true, hp: 200, mass: 5.0 }));
+            bodies.push(new PhysicsBody(startX, WORLD.groundY - 90, { w: 180, h: 20, state: PHYSICS_STATE.LOCKED, color: '#f59e0b', type: 'rect', isWood: true, hp: 150, mass: 4.0 }));
+            bodies.push(new PhysicsBody(startX, WORLD.groundY - 130, { w: 120, h: 15, state: PHYSICS_STATE.LOCKED, color: '#fbbf24', type: 'rect', isWood: true, hp: 100, mass: 3.0 }));
+            bodies.push(new PhysicsBody(startX - 30, WORLD.groundY - 110, { w: 20, h: 40, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 70, mass: 1.8 }));
+            bodies.push(new PhysicsBody(startX + 30, WORLD.groundY - 110, { w: 20, h: 40, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 70, mass: 1.8 }));
+            bodies.push(new PhysicsBody(startX - 40, WORLD.groundY - 155, { w: 15, h: 50, angle: Math.PI/6, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 60, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX + 40, WORLD.groundY - 155, { w: 15, h: 50, angle: -Math.PI/6, state: PHYSICS_STATE.LOCKED, color: '#fcd34d', type: 'rect', isWood: true, hp: 60, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX, WORLD.groundY - 170, { w: 100, h: 15, state: PHYSICS_STATE.LOCKED, color: '#f59e0b', type: 'rect', isWood: true, hp: 90, mass: 2.5 }));
+            
+            bodies.push(new PhysicsBody(startX - 40, WORLD.groundY - 15, { r: 20, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#15803d', type: 'circle', hp: 100, mass: 3.0 }));
+            bodies.push(new PhysicsBody(startX + 40, WORLD.groundY - 15, { r: 20, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#15803d', type: 'circle', hp: 100, mass: 3.0 }));
+            bodies.push(new PhysicsBody(startX - 20, WORLD.groundY - 90, { r: 18, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#16a34a', type: 'circle', hp: 70, mass: 2.2 }));
+            bodies.push(new PhysicsBody(startX + 20, WORLD.groundY - 90, { r: 18, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#16a34a', type: 'circle', hp: 70, mass: 2.2 }));
+            bodies.push(new PhysicsBody(startX - 25, WORLD.groundY - 130, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#22c55e', type: 'circle', hp: 60, mass: 1.8 }));
+            bodies.push(new PhysicsBody(startX + 25, WORLD.groundY - 130, { r: 16, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#22c55e', type: 'circle', hp: 60, mass: 1.8 }));
+            bodies.push(new PhysicsBody(startX - 15, WORLD.groundY - 170, { r: 14, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#4ade80', type: 'circle', hp: 50, mass: 1.5 }));
+            bodies.push(new PhysicsBody(startX + 15, WORLD.groundY - 170, { r: 14, isPig: true, state: PHYSICS_STATE.LOCKED, color: '#4ade80', type: 'circle', hp: 50, mass: 1.5 }));
+            initBird();
+        }
+
+        function initBird() {
+            if (attemptsLeft <= 0) return;
+            currentBird = new PhysicsBody(SLING.x, SLING.y, { r: 20, type: 'circle', state: PHYSICS_STATE.LOCKED, color: '#f43f5e', isBird: true, mass: WORLD.birdMass, hp: 1000 });
+        }
+
+        function resetGame() {
+            lastImpulse = 0; lastImpactEnergy = 0; killCount = 0; totalWorkDone = 0; particles = []; birdReleased = false;
+            attemptsLeft = maxAttempts; updateHearts();
+            switch(currentLevel) { case 1: spawnLevel1(); break; case 2: spawnLevel2(); break; case 3: spawnLevel3(); break; default: spawnLevel1(); currentLevel = 1; }
+            setDefaultParams();
+        }
+
+        function nextLevel() {
+            currentLevel = (currentLevel % 3) + 1; resetGame(); showToast("LEVEL " + currentLevel + " LOADED!");
+        }
+
+        function togglePause() {
+            WORLD.paused = !WORLD.paused;
+            const btn = document.getElementById('pause-btn');
+            if (WORLD.paused) { btn.innerHTML = '<i class="fas fa-play mr-1"></i>RESUME'; btn.classList.remove('bg-blue-600'); btn.classList.add('bg-green-600'); }
+            else { btn.innerHTML = '<i class="fas fa-pause mr-1"></i>PAUSE'; btn.classList.remove('bg-green-600'); btn.classList.add('bg-blue-600'); }
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast'); toast.textContent = message || `PIG DESTROYED! (${killCount}/${totalPigs})`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 2000);
+        }
+
+        function showInfoBubble(x, y, text) {
+            infoBubble = { show: true, x, y, text };
+            const bubble = document.getElementById('info-bubble');
+            bubble.style.left = (x + 15) + 'px'; bubble.style.top = (y - 15) + 'px'; bubble.textContent = text; bubble.style.opacity = '1';
+        }
+
+        function hideInfoBubble() {
+            infoBubble.show = false; document.getElementById('info-bubble').style.opacity = '0';
+        }
+
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect(); mousePos.x = e.clientX - rect.left; mousePos.y = e.clientY - rect.top;
+            const all = [...birds, ...bodies]; let hovered = false;
+            for (const obj of all) {
+                if (!obj.isAlive) continue;
+                const bounds = obj.getBounds();
+                if (mousePos.x >= bounds.left && mousePos.x <= bounds.right && mousePos.y >= bounds.top && mousePos.y <= bounds.bottom) {
+                    const speed = Math.sqrt(obj.vx*obj.vx + obj.vy*obj.vy) * 60 / SCALE; const ke = 0.5 * obj.mass * speed * speed;
+                    let info = `${obj.isBird ? 'Bird' : obj.isPig ? 'Pig' : obj.isWood ? 'Wood' : obj.isStone ? 'Stone' : 'Object'}\nMass: ${obj.mass.toFixed(2)} kg\nSpeed: ${speed.toFixed(2)} m/s\nEnergy: ${ke.toFixed(2)} J`;
+                    if (!obj.isBird) info += `\nHP: ${Math.max(0, obj.hp).toFixed(0)}/${obj.maxHp}`;
+                    showInfoBubble(mousePos.x, mousePos.y, info); hovered = true; break;
+                }
+            }
+            if (!hovered && infoBubble.show) hideInfoBubble();
+        }
+
+        function handleInput(e) {
+            e.preventDefault();
+            const pos = e.touches ? e.touches[0] : e;
+            const rect = canvas.getBoundingClientRect();
+            const x = pos.clientX - rect.left, y = pos.clientY - rect.top;
+            
+            if (e.type === 'mousedown' || e.type === 'touchstart') {
+                if (Math.sqrt((x-SLING.x)**2 + (y-SLING.y)**2) < 60) { isDragging = true; document.body.style.cursor = 'grabbing'; }
+            } else if (isDragging && (e.type === 'mousemove' || e.type === 'touchmove')) {
+                const dist = Math.sqrt((x-SLING.x)**2 + (y-SLING.y)**2);
+                const angle = Math.atan2(y-SLING.y, x-SLING.x);
+                const stretch = Math.min(dist, MAX_STRETCH);
+                dragPos = { x: SLING.x + Math.cos(angle) * stretch, y: SLING.y + Math.sin(angle) * stretch };
+                if (currentBird) { currentBird.x = dragPos.x; currentBird.y = dragPos.y; }
+            } else if (isDragging && (e.type === 'mouseup' || e.type === 'touchend')) {
+                isDragging = false; document.body.style.cursor = 'default';
+                if (currentBird) {
+                    attemptsLeft--; updateHearts();
+                    const dx = SLING.x - dragPos.x; const dy = SLING.y - dragPos.y;
+                    const displacementPixels = Math.sqrt(dx*dx + dy*dy); 
+                    const stretchMeters = Math.min(displacementPixels, MAX_STRETCH) / SCALE;
+                    
+                    // --- REALISTIC LAUNCH: ENERGY CONSERVATION ---
+                    // Potential Energy = 0.5 * k * x^2
+                    // Kinetic Energy = 0.5 * m * v^2
+                    // Therefore: v = x * sqrt(k / m)
+                    const v0_mps = stretchMeters * Math.sqrt(WORLD.k / WORLD.birdMass);
+                    
+                    // Convert m/s to px/frame for the engine (60fps)
+                    const v0_pixels = (v0_mps * SCALE) / 60;
+                    
+                    const directionX = dx / displacementPixels; 
+                    const directionY = dy / displacementPixels;
+                    
+                    currentBird.state = PHYSICS_STATE.DYNAMIC;
+                    currentBird.vx = directionX * v0_pixels; 
+                    currentBird.vy = directionY * v0_pixels;
+                    
+                    birds.push(currentBird); birdReleased = true; currentBird = null;
+                    
+                    setTimeout(() => {
+                        if (killCount >= totalPigs) return;
+                        if (attemptsLeft > 0) initBird();
+                        else if (killCount < totalPigs) showToast("GAME OVER! No more birds!");
+                    }, 2000);
+                }
+            }
+            mousePos.x = x; mousePos.y = y;
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, WORLD.groundY);
+            skyGradient.addColorStop(0, '#0f172a'); skyGradient.addColorStop(1, '#1e293b');
+            ctx.fillStyle = skyGradient; ctx.fillRect(0, 0, canvas.width, WORLD.groundY);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            for (let i = 0; i < 3; i++) {
+                const x = (i * 300 + Date.now() * 0.01) % (canvas.width + 400) - 200; const y = 80 + i * 40; drawCloud(x, y);
+            }
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; ctx.font = 'bold 16px "Luckiest Guy"'; ctx.fillText(`LEVEL ${currentLevel}`, 20, 80);
+            drawSling(); drawPrediction();
+            
+            const all = [...birds, ...bodies];
+            if (!WORLD.paused) {
+                all.forEach(b => b.update());
+                updateParticles();
+                // Simple collision loop (O(N^2))
+                for (let i = 0; i < all.length; i++) {
+                    for (let j = i + 1; j < all.length; j++) {
+                        resolveCollision(all[i], all[j]);
+                    }
+                }
+            }
+            
+            all.forEach(b => b.draw());
+            if (currentBird) currentBird.draw();
+            drawParticles();
+            
+            ctx.fillStyle = '#065f46'; ctx.fillRect(0, WORLD.groundY, canvas.width, canvas.height - WORLD.groundY);
+            ctx.fillStyle = '#047857';
+            for (let i = 0; i < canvas.width; i += 8) {
+                const height = 3 + Math.sin(i * 0.06) * 2; ctx.fillRect(i, WORLD.groundY, 6, -height);
+            }
+            
+            updateHUD(); requestAnimationFrame(animate);
+        }
+
+        function drawCloud(x, y) {
+            ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.arc(x + 25, y - 10, 25, 0, Math.PI * 2); ctx.arc(x + 50, y, 20, 0, Math.PI * 2); ctx.arc(x + 25, y + 10, 15, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            WORLD.groundY = canvas.height * 0.75; SLING.y = WORLD.groundY - 120; SLING.x = Math.min(250, canvas.width * 0.2); resetGame();
+        }
+
+        function init() {
+            ['g-slider', 'k-slider', 'm-slider', 'wind-slider'].forEach(sliderId => {
+                const slider = document.getElementById(sliderId); slider.oninput = null; slider.onchange = null;
+                slider.addEventListener('input', syncParams); slider.addEventListener('change', syncParams);
+            });
+            Object.keys(panelState).forEach(panelName => {
+                const content = document.getElementById(`content-${panelName}`); const icon = document.getElementById(`icon-${panelName}`);
+                if (panelState[panelName]) { content.classList.add('expanded'); icon.classList.remove('fa-chevron-down'); icon.classList.add('fa-chevron-up'); }
+            });
+            syncParams(); updateHearts(); resize(); animate();
+        }
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('mousemove', (e) => { handleMouseMove(e); handleInput(e); });
+        canvas.addEventListener('mouseup', handleInput);
+        canvas.addEventListener('touchstart', handleInput, {passive: false});
+        canvas.addEventListener('touchmove', handleInput, {passive: false});
+        canvas.addEventListener('touchend', handleInput, {passive: false});
+        window.addEventListener('resize', resize);
+        document.getElementById('sidebar').addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('.panel-header') || e.target.closest('.quick-action-btn') || e.target.closest('.hitbox-toggle')) return; e.stopPropagation();
+        });
+        window.addEventListener('keydown', (e) => {
+            switch(e.key) { case ' ': case 'p': togglePause(); break; case 'r': case 'R': resetGame(); break; case 'n': case 'N': nextLevel(); break; case 's': case 'S': toggleSidebar(); break; case 'h': case 'H': toggleHitboxes(); break; case 'Escape': WORLD.paused = true; break; }
+        });
+        init();
+    </script>
+</body>
+</html>
