@@ -1,4 +1,4 @@
-# Angry Birds Physics (Grade 12 Mechanics Simulation)
+# Angry Birds Physics
 
 A browser-based **Angry Birds–style physics lab** built as a **Grade 12 mechanics simulation**. You launch a bird with a slingshot, try to destroy all pigs, and (most importantly) see the underlying physics update live—projectile motion, Hooke’s law (spring), work–energy, and collision/impulse concepts.
 
